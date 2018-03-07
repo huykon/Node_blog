@@ -14,7 +14,7 @@ function getConnection() {
 	if (!connection) {
 		connection.connect();
 	}
-	//console.log(connection);
+
 	return connection;
 }
 
