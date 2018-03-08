@@ -12,7 +12,7 @@ function hash_password(password) {
 
 function compare_password(password, hash) {
 
-	return bcrypt.ç(password, hash); // true
+	return bcrypt.compareSync(password, hash); // true
 }
 
 module.exports = {
