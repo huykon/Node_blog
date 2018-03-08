@@ -2,38 +2,50 @@ var express = require("express");
 var router = express.Router();
 
 var user_md = require("../models/user");
+var post_md = require("../models/post");
+
 var helper = require("../helpers/helper");
 
 router.get("/", function (req, res) {
 	//res.json({"message": "This is admin page"});
-	res.render("admin/dashboard", {data: {error: false}});
+	var data = post_md.getAllPosts();
+	data.then(function (posts) {
+		var data = {
+			posts: posts,
+			error: false
+		}
+		res.render("admin/dashboard", { data: data });
+	}).catch(function (err) {
+		res.render("admin/dashboard", { data: { error: 'Get post data is error' } });
+	});
+
 });
 
 router.get("/signup", function (req, res) {
-	res.render("signup", {data: {}});
+	res.render("signup", { data: {} });
 });
 
 router.post("/signup", function (req, res) {
 	var user = req.body;
 	if (user.email.trim().length == 0) {
-		res.render("signup", {data: {error: "Email is required"}});
+		res.render("signup", { data: { error: "Email is required" } });
 	}
 
 	if (user.passwd.trim().length == 0) {
-		res.render("signup", {data: {error: "Password is required"}});
+		res.render("signup", { data: { error: "Password is required" } });
 	}
 
 	if (user.passwd != user.repasswd && user.passwd.trim().length != 0) {
-		res.render("signup", {data: {error: "Password is not match"}});
+		res.render("signup", { data: { error: "Password is not match" } });
 	}
 
 	// Insert to db
 	var password = helper.hash_password(user.passwd);
 	user = {
-		email     : user.email,
-		password  : password,
+		email: user.email,
+		password: password,
 		first_name: user.firstname,
-		last_name : user.lastname
+		last_name: user.lastname
 	};
 
 	var result = user_md.addUser(user);
@@ -42,26 +54,25 @@ router.post("/signup", function (req, res) {
 		//res.json({message: "Insert success"});
 		res.redirect("/admin/signin");
 	}).catch(function (err) {
-		res.render("signup", {data: {error: "Could not insert user data to DB " + err}});
+		res.render("signup", { data: { error: "Could not insert user data to DB " + err } });
 	});
 
 	/*if (!result) {
-res.render("signup", {data: {error: "Could not insert user data to DB"}});
+		res.render("signup", {data: {error: "Could not insert user data to DB"}});
 	} else {
-res.json({message: "Insert success"});
+		res.json({message: "Insert success"});
 	}*/
 
 });
 
 router.get("/signin", function (req, res) {
-	res.render("signin", {data: {}});
+	res.render("signin", { data: {} });
 });
 
 router.post("/signin", function (req, res) {
 	var params = req.body;
-
 	if (params.email.trim().length == 0) {
-		res.render("signin", {data: {error: "Please enter an email"}});
+		res.render("signin", { data: { error: "Please enter an email" } });
 	} else {
 		var data = user_md.getUserByEmail(params.email);
 		if (data) {
@@ -69,20 +80,99 @@ router.post("/signin", function (req, res) {
 				var user = users[0];
 
 				var status = helper.compare_password(params.password, user.password);
-				console.log(user);
-				console.log(params.password);
-				console.log(user.password);
-				console.log(status);
 
 				if (!status) {
-					res.render("signin", {data: {error: "Password wrong"}});
+					res.render("signin", { data: { error: "Password wrong" } });
 				} else {
+					req.session.user = user; // luu thong tin user vao session
 					res.redirect("/admin/");
 				}
 			})
 		} else {
-			res.render("signin", {data: {error: "User is not exist"}});
+			res.render("signin", { data: { error: "User is not exist" } });
 		}
+	}
+});
+
+router.get("/post/new", function (req, res) {
+	res.render("admin/post/new", { data: { error: false } });
+});
+
+router.post("/post/new", function (req, res) {
+	var params = req.body;
+
+	if (params.title.trim().length == 0) {
+		var data = {
+			error: "Please enter a title"
+		};
+
+		res.render("admin/post/new", { data: data });
+	} else {
+		var now = new Date();
+		params.created_at = now;
+		params.updated_at = now;
+
+		var data = post_md.addPost(params);
+		data.then(function (result) {
+			res.redirect("/admin");
+		}).catch(function (err) {
+			res.render("admin/post/new", { data: { error: "Could not add new post" } })
+		});
+	}
+
+});
+
+router.get("/post/edit/:id", function (req, res) {
+	var params = req.params;
+	var id = params.id;
+
+	var data = post_md.getPostByID(id);
+
+	if (data) {
+		data.then(function (posts) {
+			var post = posts[0];
+
+			var data = {
+				post: post,
+				error: false
+			};
+			res.render("admin/post/edit", { data: data });
+		}).catch(function (err) {
+			res.render("admin/post/edit", { data: { error: "Could not get Post by ID" } });
+		});
+	} else {
+		res.render("admin/post/edit", { data: { error: "Could not get Post by ID" } });
+	}
+
+});
+
+router.put("/post/edit", function (req, res) {
+	var params = req.body;
+	data = post_md.updatePost(params);
+
+	if (!data) {
+		res.json({ status_code: 500 });
+	} else {
+		data.then(function (result) {
+			res.json({ status_code: 200 });
+		}).catch(function (err) {
+			res.json({ status_code: 500 });
+		});
+	}
+});
+
+router.delete("/post/delete", function (req, res) {
+	var post_id = req.body.id; console.log(post_id);
+	var data = post_md.deletePost(post_id);
+
+	if (!data) {
+		res.json({ status_code: 500 });
+	} else {
+		data.then(function (result) {
+			res.json({ status_code: 200 });
+		}).catch(function (err) {
+			res.json({ status_code: 500 });
+		});
 	}
 });
 
