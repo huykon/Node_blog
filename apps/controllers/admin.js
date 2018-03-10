@@ -8,16 +8,20 @@ var helper = require("../helpers/helper");
 
 router.get("/", function (req, res) {
 	//res.json({"message": "This is admin page"});
-	var data = post_md.getAllPosts();
-	data.then(function (posts) {
-		var data = {
-			posts: posts,
-			error: false
-		}
-		res.render("admin/dashboard", { data: data });
-	}).catch(function (err) {
-		res.render("admin/dashboard", { data: { error: 'Get post data is error' } });
-	});
+	if (req.session.user) {
+		var data = post_md.getAllPosts();
+		data.then(function (posts) {
+			var data = {
+				posts: posts,
+				error: false
+			}
+			res.render("admin/dashboard", { data: data });
+		}).catch(function (err) {
+			res.render("admin/dashboard", { data: { error: 'Get post data is error' } });
+		});
+	} else {
+		res.redirect("/admin/signin");
+	}
 
 });
 
@@ -95,84 +99,128 @@ router.post("/signin", function (req, res) {
 });
 
 router.get("/post/new", function (req, res) {
-	res.render("admin/post/new", { data: { error: false } });
+	if (req.session.user) {
+		res.render("admin/post/new", { data: { error: false } });
+	} else {
+		res.redirect("/admin/signin");
+	}
+
 });
 
 router.post("/post/new", function (req, res) {
-	var params = req.body;
+	if (req.session.user) {
+		var params = req.body;
 
-	if (params.title.trim().length == 0) {
-		var data = {
-			error: "Please enter a title"
-		};
+		if (params.title.trim().length == 0) {
+			var data = {
+				error: "Please enter a title"
+			};
 
-		res.render("admin/post/new", { data: data });
+			res.render("admin/post/new", { data: data });
+		} else {
+			var now = new Date();
+			params.created_at = now;
+			params.updated_at = now;
+
+			var data = post_md.addPost(params);
+			data.then(function (result) {
+				res.redirect("/admin");
+			}).catch(function (err) {
+				res.render("admin/post/new", { data: { error: "Could not add new post" } })
+			});
+		}
 	} else {
-		var now = new Date();
-		params.created_at = now;
-		params.updated_at = now;
-
-		var data = post_md.addPost(params);
-		data.then(function (result) {
-			res.redirect("/admin");
-		}).catch(function (err) {
-			res.render("admin/post/new", { data: { error: "Could not add new post" } })
-		});
+		res.redirect("/admin/signin");
 	}
-
 });
 
 router.get("/post/edit/:id", function (req, res) {
-	var params = req.params;
-	var id = params.id;
+	if (req.session.user) {
+		var params = req.params;
+		var id = params.id;
 
-	var data = post_md.getPostByID(id);
+		var data = post_md.getPostByID(id);
 
-	if (data) {
-		data.then(function (posts) {
-			var post = posts[0];
+		if (data) {
+			data.then(function (posts) {
+				var post = posts[0];
 
-			var data = {
-				post: post,
-				error: false
-			};
-			res.render("admin/post/edit", { data: data });
-		}).catch(function (err) {
+				var data = {
+					post: post,
+					error: false
+				};
+				res.render("admin/post/edit", { data: data });
+			}).catch(function (err) {
+				res.render("admin/post/edit", { data: { error: "Could not get Post by ID" } });
+			});
+		} else {
 			res.render("admin/post/edit", { data: { error: "Could not get Post by ID" } });
-		});
+		}
 	} else {
-		res.render("admin/post/edit", { data: { error: "Could not get Post by ID" } });
+		res.redirect("/admin/signin");
 	}
-
 });
 
 router.put("/post/edit", function (req, res) {
-	var params = req.body;
-	data = post_md.updatePost(params);
+	if (req.session.user) {
+		var params = req.body;
+		data = post_md.updatePost(params);
 
-	if (!data) {
-		res.json({ status_code: 500 });
-	} else {
-		data.then(function (result) {
-			res.json({ status_code: 200 });
-		}).catch(function (err) {
+		if (!data) {
 			res.json({ status_code: 500 });
-		});
+		} else {
+			data.then(function (result) {
+				res.json({ status_code: 200 });
+			}).catch(function (err) {
+				res.json({ status_code: 500 });
+			});
+		}
+	} else {
+		res.redirect("/admin/signin");
 	}
 });
 
 router.delete("/post/delete", function (req, res) {
-	var post_id = req.body.id; console.log(post_id);
-	var data = post_md.deletePost(post_id);
+	if (req.session.user) {
+		var post_id = req.body.id;
+		var data = post_md.deletePost(post_id);
 
-	if (!data) {
-		res.json({ status_code: 500 });
-	} else {
-		data.then(function (result) {
-			res.json({ status_code: 200 });
-		}).catch(function (err) {
+		if (!data) {
 			res.json({ status_code: 500 });
+		} else {
+			data.then(function (result) {
+				res.json({ status_code: 200 });
+			}).catch(function (err) {
+				res.json({ status_code: 500 });
+			});
+		}
+	} else {
+		res.redirect("/admin/signin");
+	}
+});
+
+router.get("/post", function (req, res) {
+	if (req.session.user) {
+		res.redirect("/admin");
+	} else {
+		res.redirect("/admin/signin");
+	}
+});
+
+router.get("/user", function (req, res) {
+	if (req.session.user) {
+		var data = user_md.getAllUsers(); console.log(data);
+		data.then(function (users) {
+			var data = {
+				users: users,
+				error: false
+			}
+			res.render("admin/user", { data: data });
+		}).catch(function (err) {
+			res.render("admin/user", { data: { error: "Could not get Users list" } });
 		});
+	} else {
+		res.redirect("/admin/signin");
 	}
 });
 

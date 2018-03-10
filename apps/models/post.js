@@ -67,7 +67,7 @@ function updatePost(params) {
 function deletePost(id) {
     if (id) {
         var defer = q.defer();
-        var query = conn.query('DELETE FROM posts WHERE id = ?', { id }, function (error, results, fields) {
+        var query = conn.query('DELETE FROM posts WHERE id = ?', id, function (error, results, fields) {
             if (error) {
                 defer.reject(error);
             } else {
